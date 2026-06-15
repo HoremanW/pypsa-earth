@@ -36,6 +36,7 @@ electricity:
   co2limit: 1.487e+9
   co2base: 1.487e+9
   automatic_emission: true
+  renewable_carriers: [solar, onwind, offwind-ac, offwind-dc, hydro]
 
 
 atlite:
@@ -49,5 +50,5 @@ renewable:
 
 solving:
   solver:
-    name: glpk
-    options: glpk-default
+    name: gurobi
+    options: gurobi-default
