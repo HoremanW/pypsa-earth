@@ -1,1 +1,5 @@
 Name,Fueltype,Technology,Set,Country,Capacity,Efficiency,Duration,Volume_Mm3,DamHeight_m,StorageCapacity_MWh,DateIn,DateRetrofit,DateOut,lat,lon,EIC,projectID,bus
+Taiba N'Diaye / Tobene BESS,Battery,,Store,SN,40,,4,,,160,2025,2025,,15.13,-16.85,,,
+Walo Storage,Battery,,Store,SN,10,,2,,,20,2025,2025,,16.35,-15.35,,,
+NEA Kolda,Battery,,Store,SN,24,,3,,,72,2026,2026,,12.87,-14.75,,,
+Nakhar Solar + Storage,Battery,,Store,SN,15,,3,,,45,2026,2026,,14.51,-16.41,,,
