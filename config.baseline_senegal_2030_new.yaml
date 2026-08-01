@@ -35,7 +35,7 @@ enable:
 
 
 
-custom_rules: [] # Default empty [] or link to custom rule file e.g. ["my_folder/my_rules.smk"] that add rules to Snakefile
+custom_rules: ["custom_rules/patch_transmission.smk"] # Default empty [] or link to custom rule file e.g. ["my_folder/my_rules.smk"] that add rules to Snakefile
 
 run:
   name: "baseline_no_bess_2030_new" # use this to keep track of runs with different settings

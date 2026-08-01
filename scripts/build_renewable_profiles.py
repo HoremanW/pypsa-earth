@@ -632,13 +632,16 @@ if __name__ == "__main__":
             ).to_netcdf(snakemake.output.profile)
         else:
             # otherwise perform the calculations
-            inflow = correction_factor * func(capacity_factor=True, **resource)
+            # Note: hydro needs the full per-timestep runoff series (for basin-to-plant
+            # travel-time shifting and later .time access), not a time-aggregated
+            # capacity factor - unlike the wind/solar capacity_factor=True usage below.
+            inflow = correction_factor * func(capacity_factor_timeseries=True, **resource)
 
             if "clip_min_inflow" in config:
                 inflow = inflow.where(inflow >= config["clip_min_inflow"], 0)
 
             # check if normalization field belongs to the settings and it is not false
-            if normalization:
+            if normalization and normalization.get("method"):
                 method = normalization["method"]
                 norm_year = normalization.get("year", int(inflow.time[0].dt.year))
                 if method == "hydro_capacities":

@@ -3226,7 +3226,12 @@ if __name__ == "__main__":
         )
 
     # Load population layout
-    pop_layout = pd.read_csv(snakemake.input.clustered_pop_layout, index_col=0)
+    # dtype=str on the index avoids pandas silently inferring bus names as int64
+    # when clustering (as with a single-country model) produces purely numeric
+    # bus labels (e.g. "1", "2") instead of the usual "<country> <n>" form.
+    pop_layout = pd.read_csv(
+        snakemake.input.clustered_pop_layout, index_col=0, dtype={"name": str}
+    )
 
     # Load all sector wildcards
     options = snakemake.params.sector_options

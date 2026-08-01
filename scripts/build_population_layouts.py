@@ -65,8 +65,9 @@ if __name__ == "__main__":
     # Remove index header
     urban_percent_df.index.name = None
 
-    # Squeeze into a Series
-    urban_fraction = urban_percent_df.squeeze() / 100.0
+    # Squeeze into a Series (squeeze only the column axis, so a single-country
+    # run doesn't collapse to a bare scalar and lose its country index)
+    urban_fraction = urban_percent_df.squeeze(axis=1) / 100.0
 
     # population in each grid cell
     pop_cells = pd.Series(I.dot(nuts3["pop"]))

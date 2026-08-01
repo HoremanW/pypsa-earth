@@ -35,11 +35,11 @@ enable:
 
 
 
-custom_rules: [] # Default empty [] or link to custom rule file e.g. ["my_folder/my_rules.smk"] that add rules to Snakefile
+custom_rules: ["custom_rules/patch_transmission.smk"] # Default empty [] or link to custom rule file e.g. ["my_folder/my_rules.smk"] that add rules to Snakefile
 
 run:
   name: "baseline_no_bess_2050_myopic" # use this to keep track of runs with different settings
-  sector_name: "" # use this to keep track of sector scenario runs
+  sector_name: "no_bess" # use this to keep track of sector scenario runs
   shared_cutouts: true # set to true to share the default cutout(s) across runs
   # Note: value false requires build_cutout to be enabled
   allow_scenario_failure: false # If True, the workflow will continue even if a scenario in run_scnenario fails
@@ -644,21 +644,31 @@ sector:
     AP_2030: 0.004
     NZ_2030: 0.02
     DF_2030: 0.01
+    AB_2025: 0.005
     AB_2030: 0.01
+    AB_2035: 0.03
+    AB_2040: 0.045
+    AB_2045: 0.06
     BU_2050: 0.00
     AP_2050: 0.06
     NZ_2050: 0.28
     DF_2050: 0.08
+    AB_2050: 0.08
   land_transport_electric_share: # 1 means all EVs  # This leads to problems when non-zero HERE
     BU_2030: 0.00
     AP_2030: 0.075
     NZ_2030: 0.13
     DF_2030: 0.01
+    AB_2025: 0.01
     AB_2030: 0.01
+    AB_2035: 0.0103
+    AB_2040: 0.0105
+    AB_2045: 0.0108
     BU_2050: 0.00
     AP_2050: 0.42
     NZ_2050: 0.68
     DF_2050: 0.011
+    AB_2050: 0.011
 
   dynamic_transport:
     enable: false # If "True", then the BEV and FCEV shares are obtained depending on the "Co2L"-wildcard (e.g. "Co2L0.70: 0.10"). If "False", then the shares are obtained depending on the "demand" wildcard and "planning_horizons" wildcard as listed below (e.g. "DF_2050: 0.08")
@@ -733,11 +743,16 @@ sector:
     AP_2030: 0.00
     NZ_2030: 0.10
     DF_2030: 0.05
+    AB_2025: 0.03
     AB_2030: 0.05
+    AB_2035: 0.07
+    AB_2040: 0.085
+    AB_2045: 0.10
     BU_2050: 0.00
     AP_2050: 0.25
     NZ_2050: 0.36
     DF_2050: 0.12
+    AB_2050: 0.12
   airport_sizing_factor: 3
   international_bunkers: false #Whether or not to count the emissions of international aviation and navigation
 

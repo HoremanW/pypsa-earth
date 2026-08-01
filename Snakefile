@@ -327,6 +327,7 @@ rule base_network:
         countries=config["countries"],
         base_network=config["base_network"],
     input:
+        patch_sentinel="resources/" + RDIR + "base_network/.patch_done",
         osm_buses="resources/" + RDIR + "base_network/all_buses_build_network.csv",
         osm_lines="resources/" + RDIR + "base_network/all_lines_build_network.csv",
         osm_converters="resources/"

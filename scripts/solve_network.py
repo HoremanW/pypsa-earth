@@ -652,7 +652,19 @@ def _add_land_use_constraint(n):
             .sum()
         )
         existing.index += " " + carrier + "-" + snakemake.wildcards.planning_horizons
-        n.generators.loc[existing.index, "p_nom_max"] -= existing
+        # Some clustered networks end up with a generator name prefix that doesn't
+        # match its own bus label (an upstream clustering artifact), so the
+        # reconstructed name above isn't guaranteed to exist - only apply the
+        # land-use reduction to the entries that actually do.
+        found = existing.index.intersection(n.generators.index)
+        missing = existing.index.difference(n.generators.index)
+        if len(missing) > 0:
+            logger.warning(
+                f"Skipping land use constraint for {len(missing)} '{carrier}' "
+                f"entries with no matching generator (likely a bus/generator "
+                f"name mismatch from clustering): {list(missing)}"
+            )
+        n.generators.loc[found, "p_nom_max"] -= existing.loc[found]
 
     n.generators.p_nom_max.clip(lower=0, inplace=True)
 
