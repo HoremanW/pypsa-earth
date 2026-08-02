@@ -12,7 +12,7 @@ logging:
 results_dir: results/
 summary_dir: results/
 
-foresight: myopic # myopic, perfect, or overnight
+foresight: overnight # myopic, perfect, or overnight
 
 
 countries: ["SN"]
@@ -38,7 +38,7 @@ enable:
 custom_rules: [] # Default empty [] or link to custom rule file e.g. ["my_folder/my_rules.smk"] that add rules to Snakefile
 
 run:
-  name: "baseline_no_bess_2050_myopic" # use this to keep track of runs with different settings
+  name: "baseline_bess_2050_overnight" # use this to keep track of runs with different settings
   sector_name: "" # use this to keep track of sector scenario runs
   shared_cutouts: true # set to true to share the default cutout(s) across runs
   # Note: value false requires build_cutout to be enabled
@@ -50,11 +50,6 @@ scenario:
   clusters: [24]
   opts: [1h]
   planning_horizons: # investment years for myopic and perfect; or costs year for overnight
-  - 2025
-  - 2030
-  - 2035
-  - 2040
-  - 2045
   - 2050
   sopts:
   - "336seg"
@@ -222,11 +217,11 @@ electricity:
   extendable_carriers:
     Generator: [solar, onwind, OCGT, CCGT, oil, coal, biomass]          # was: [solar, onwind, offwind-ac, offwind-dc, OCGT]
     StorageUnit: []
-    Store: []              # was: [battery, H2]
+    Store: [battery]              # was: [battery, H2]
     Link: []
 
   powerplants_filter: (DateOut >= 2050 or DateOut != DateOut) and (DateIn <= 2050 or DateIn != DateIn)
-  custom_powerplants: false #  "false" use only powerplantmatching (ppm) data, "merge" combines ppm and custom powerplants, "replace" use only custom powerplants
+  custom_powerplants: merge #  "false" use only powerplantmatching (ppm) data, "merge" combines ppm and custom powerplants, "replace" use only custom powerplants
 
   conventional_carriers: [oil, OCGT, CCGT, coal, biomass]
   renewable_carriers: [solar, onwind, hydro]
