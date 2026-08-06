@@ -1,0 +1,27 @@
+[10:31:57] === BATCH RUN START ===
+[10:31:57]   config verified: baseline_no_bess_2030_overnight, year=2030, bess=False
+[10:31:57]   copied resources/baseline_no_bess_2050_myopic/costs_2030.csv -> resources/baseline_no_bess_2030_overnight/costs_2030.csv
+[10:31:57]   starting snakemake solve for baseline_no_bess_2030_overnight ...
+[10:36:36]   snakemake exit code: 0
+[10:36:36] SUCCESS: baseline_no_bess_2030_overnight
+[10:36:36]   config verified: baseline_bess_2045_overnight, year=2045, bess=True
+[10:36:36]   copied resources/baseline_no_bess_2050_myopic/costs_2045.csv -> resources/baseline_bess_2045_overnight/costs_2045.csv
+[10:36:36]   starting snakemake solve for baseline_bess_2045_overnight ...
+[10:45:34]   snakemake exit code: 0
+[10:45:34] SUCCESS: baseline_bess_2045_overnight
+[10:45:34]   config verified: baseline_bess_2040_overnight, year=2040, bess=True
+[10:45:34]   copied resources/baseline_no_bess_2050_myopic/costs_2040.csv -> resources/baseline_bess_2040_overnight/costs_2040.csv
+[10:45:34]   starting snakemake solve for baseline_bess_2040_overnight ...
+[10:54:36]   snakemake exit code: 0
+[10:54:36] SUCCESS: baseline_bess_2040_overnight
+[10:54:36]   config verified: baseline_bess_2035_overnight, year=2035, bess=True
+[10:54:36]   copied resources/baseline_no_bess_2050_myopic/costs_2035.csv -> resources/baseline_bess_2035_overnight/costs_2035.csv
+[10:54:36]   starting snakemake solve for baseline_bess_2035_overnight ...
+[11:05:58]   snakemake exit code: 0
+[11:05:58] SUCCESS: baseline_bess_2035_overnight
+[11:05:58]   config verified: baseline_bess_2030_overnight, year=2030, bess=True
+[11:05:58]   copied resources/baseline_no_bess_2030_overnight/costs_2030.csv -> resources/baseline_bess_2030_overnight/costs_2030.csv
+[11:05:58]   starting snakemake solve for baseline_bess_2030_overnight ...
+[11:12:11]   snakemake exit code: 0
+[11:12:11] SUCCESS: baseline_bess_2030_overnight
+[11:12:11] === BATCH RUN COMPLETE: all 5 runs solved successfully ===

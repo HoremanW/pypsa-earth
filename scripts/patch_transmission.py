@@ -8,6 +8,14 @@ Added lines (225 kV AC):
   - sub 141 (base bus 25) <-> sub 148 (base bus 22)
   - sub 133 (base bus 21) <-> new substation (bus 28)
 
+Split lines (225 kV AC):
+  - 837491615_0 (base bus 20 <-> base bus 24) incorrectly runs straight through sub 148
+    (base bus 22) without a stop: bus 22 sits geographically between bus 20 and bus 24
+    (lon -14.9357 -> -15.4657 -> -16.2227, lat 12.8632 -> 12.6558 -> 12.5578), so the
+    single OSM line is replaced with two segments routed via sub 148:
+      - base bus 20 <-> sub 148 (base bus 22)
+      - sub 148 (base bus 22) <-> base bus 24
+
 Added substation:
   - Bus 28 at lon=-12.183247, lat=12.553736 (225 kV AC)
 """
@@ -30,7 +38,13 @@ NEW_LINES = [
     ("custom_sub5_sub13",     3, 11),
     ("custom_sub141_sub148", 25, 22),
     ("custom_sub133_new",    21, NEW_BUS_ID),
+    ("custom_bus20_sub148",  20, 22),
+    ("custom_sub148_bus24",  22, 24),
 ]
+
+# Real OSM lines that get replaced by (a subset of) NEW_LINES above, e.g. because the OSM
+# way skips over an intermediate substation that should split it into two segments.
+LINES_TO_REMOVE = ["837491615_0"]
 
 def haversine_m(lon0, lat0, lon1, lat1):
     R = 6_371_000
@@ -56,6 +70,9 @@ if NEW_BUS_ID not in buses["bus_id"].values:
     buses = pd.concat(
         [buses, gpd.GeoDataFrame([new_bus], crs=buses.crs)], ignore_index=True
     )
+
+# ── remove lines superseded by a split ──────────────────────────────────────────
+lines = lines[~lines["line_id"].isin(LINES_TO_REMOVE)].reset_index(drop=True)
 
 # ── add custom lines ──────────────────────────────────────────────────────────
 for line_id, b0, b1 in NEW_LINES:
