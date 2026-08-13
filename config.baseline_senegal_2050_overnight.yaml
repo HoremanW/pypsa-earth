@@ -77,7 +77,7 @@ natura: # only relevant when using build_natura_raster: true
 
 augmented_line_connection:
   add_to_snakefile: True # If True, includes this rule to the workflow
-  connectivity_upgrade: 2 # Min. lines connection per node,
+  connectivity_upgrade: 1 # Min. lines connection per node,
   # https://networkx.org/documentation/stable/reference/algorithms/generated/networkx.algorithms.connectivity.edge_augmentation.k_edge_augmentation.html#networkx.algorithms.connectivity.edge_augmentation.k_edge_augmentation
   new_line_type: ["HVAC"] # Expanded lines can be either ["HVAC"] or ["HVDC"] or both ["HVAC", "HVDC"]
   min_expansion: 1 # [MW] New created line expands by float/int input
@@ -193,7 +193,7 @@ co2_budget:     #check!!!!!!!!!!!!!!!!
     2050: 0.1
 
 electricity:
-  base_voltage: 380.
+  base_voltage: 225.
   voltages: [90., 132., 220., 225., 300., 380., 500., 750.]
   co2limit: 7.75e+7 # European default, 0.05 * 3.1e9*0.5, needs to be adjusted for Africa
   co2base: 1.487e+9 # European default, adjustment to Africa necessary
@@ -241,6 +241,7 @@ lines:
   ac_types:
     132.: "243-AL1/39-ST1A 20.0"
     220.: "Al/St 240/40 2-bundle 220.0"
+    225.: "Al/St 240/40 2-bundle 220.0" # no dedicated 225kV entry exists in pypsa's own line-type library; 220kV is the closest standard class and electrically equivalent.
     300.: "Al/St 240/40 3-bundle 300.0"
     380.: "Al/St 240/40 4-bundle 380.0"
     500.: "Al/St 240/40 4-bundle 380.0"
@@ -377,7 +378,7 @@ renewable:
 costs:
   year: 2030 # cost file selection, i.e. costs_2030.csv in this case; reference year for costs is always 2020
   technology_data_version: v0.13.2
-  discountrate: [0.071] #, 0.086, 0.111]
+  discountrate: [0.07] #, 0.086, 0.111]
   country_specific_data: "" # (optional) Reference to the desired technology-data directory for techno-economic input data; Only "" and "US" supported, for other values check the technology-data output directory
   # Only needed if "US" is selected as `country_specific_data`, otherwise ignore
   cost_scenario: "moderate" # only used if `country_specific_data: "US"`; can be "moderate", "advanced" or "conservative"
@@ -774,7 +775,8 @@ sector:
 solving:
   options:
     formulation: kirchhoff
-    load_shedding: 1000 # Set to "false" or willingness to pay in €/kWh, e.g. 100 €/kWh (intersect between macroeconomic and surveybased willingness to pay https://doi.org/10.3389/fenrg.2015.00055)
+    load_shedding: 1 # Set to "false" or willingness to pay in €/kWh, e.g. 100 €/kWh (intersect between macroeconomic and surveybased willingness to pay https://doi.org/10.3389/fenrg.2015.00055)
+    transmission_losses: 2 # Number of piecewise-linear segments approximating I^2R line losses (loss = r_pu_eff * flow^2). 0 = lossless (previous default). NOT a flat loss percentage -- the effective loss fraction is r_pu_eff * flow, so it varies per line and per hour with loading.
     noisy_costs: true
     min_iterations: 4
     max_iterations: 6

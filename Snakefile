@@ -1777,6 +1777,53 @@ if config["foresight"] == "overnight":
             "scripts/solve_network.py"
 
 
+    rule fix_capacities_for_redispatch:
+        input:
+            network=RESDIR
+            + "postnetworks/elec_s{simpl}_{clusters}_ec_l{ll}_{opts}_{sopts}_{planning_horizons}_{discountrate}_{demand}_{h2export}export.nc",
+            costs="resources/" + RDIR + "costs_{planning_horizons}_sec.csv",
+        output:
+            RESDIR
+            + "redispatch/prenetworks/elec_s{simpl}_{clusters}_ec_l{ll}_{opts}_{sopts}_{planning_horizons}_{discountrate}_{demand}_{h2export}export.nc",
+        log:
+            "logs/"
+            + SECDIR
+            + "fix_capacities_for_redispatch/elec_s{simpl}_{clusters}_ec_l{ll}_{opts}_{sopts}_{planning_horizons}_{discountrate}_{demand}_{h2export}export.log",
+        threads: 1
+        resources:
+            mem_mb=8000,
+        script:
+            "scripts/redispatch_with_uc.py"
+
+
+    rule solve_redispatch_network:
+        params:
+            solving=config["solving"],
+        input:
+            network=RESDIR
+            + "redispatch/prenetworks/elec_s{simpl}_{clusters}_ec_l{ll}_{opts}_{sopts}_{planning_horizons}_{discountrate}_{demand}_{h2export}export.nc",
+        output:
+            RESDIR
+            + "redispatch/postnetworks/elec_s{simpl}_{clusters}_ec_l{ll}_{opts}_{sopts}_{planning_horizons}_{discountrate}_{demand}_{h2export}export.nc",
+        shadow:
+            "copy-minimal" if os.name == "nt" else "shallow"
+        log:
+            solver="logs/"
+            + SECDIR
+            + "solve_redispatch_network/elec_s{simpl}_{clusters}_ec_l{ll}_{opts}_{sopts}_{planning_horizons}_{discountrate}_{demand}_{h2export}export_solver.log",
+            python="logs/"
+            + SECDIR
+            + "solve_redispatch_network/elec_s{simpl}_{clusters}_ec_l{ll}_{opts}_{sopts}_{planning_horizons}_{discountrate}_{demand}_{h2export}export_python.log",
+            memory="logs/"
+            + SECDIR
+            + "solve_redispatch_network/elec_s{simpl}_{clusters}_ec_l{ll}_{opts}_{sopts}_{planning_horizons}_{discountrate}_{demand}_{h2export}export_memory.log",
+        threads: 25
+        resources:
+            mem_mb=config["solving"]["mem"],
+        script:
+            "scripts/solve_redispatch_network.py"
+
+
 rule make_sector_summary:
     params:
         planning_horizons=config["scenario"]["planning_horizons"],

@@ -65,7 +65,12 @@ if NEW_BUS_ID not in buses["bus_id"].values:
         "dc": False, "symbol": "substation", "under_construction": False,
         "tag_substation": "transmission", "tag_area": 0.0,
         "lon": NEW_BUS_LON, "lat": NEW_BUS_LAT, "country": "SN",
-        "substation_lv": False, "geometry": Point(NEW_BUS_LON, NEW_BUS_LAT),
+        # True, not False: substation_lv is what makes a bus a valid candidate for the
+        # nearest-bus KDTree assignment in build_powerplants.py, and for region/demand
+        # assignment in build_bus_regions.py and build_demand_profiles.py. Every other real
+        # substation in this network has it True; leaving this new one False silently made it
+        # invisible to powerplant and load assignment (found via a misassigned hydro plant).
+        "substation_lv": True, "geometry": Point(NEW_BUS_LON, NEW_BUS_LAT),
     }
     buses = pd.concat(
         [buses, gpd.GeoDataFrame([new_bus], crs=buses.crs)], ignore_index=True

@@ -361,6 +361,21 @@ def aggregate_ppl_by_bus_carrier_year(ppl: pd.DataFrame) -> pd.DataFrame:
     if "country" in ppl.columns:
         agg_dict["country"] = "first"
 
+    # Unit commitment parameters, present only if a config override supplied them (see
+    # process_cost_data.py). Not aggregated/dropped by default like any other column not in
+    # agg_dict, so they must be listed explicitly to survive this groupby.
+    for col, how in [
+        ("committable", "first"),
+        ("p_min_pu", "mean"),
+        ("ramp_limit_up", "mean"),
+        ("ramp_limit_down", "mean"),
+        ("min_up_time", "mean"),
+        ("min_down_time", "mean"),
+        ("start_up_cost_per_mw", "mean"),
+    ]:
+        if col in ppl.columns:
+            agg_dict[col] = how
+
     ppl_grouped = ppl.groupby(["bus", "carrier_gy"]).agg(agg_dict).reset_index()
 
     # Calculate build_year and lifetime
@@ -747,9 +762,7 @@ def attach_conventional_generators(
         )
     )
 
-    n.madd(
-        "Generator",
-        ppl_grouped["bus"] + " " + ppl_grouped["carrier_gy"],
+    generator_kwargs = dict(
         carrier=ppl_grouped["carrier"],
         bus=ppl_grouped["bus"],
         p_nom=ppl_grouped["p_nom"],
@@ -761,6 +774,41 @@ def attach_conventional_generators(
         capital_cost=ppl_grouped["capital_cost"],
         build_year=ppl_grouped["build_year"],
         lifetime=ppl_grouped["lifetime"],
+    )
+
+    # Unit commitment attributes, present only if a config override supplied them (see
+    # process_cost_data.py). Only ever applied here, to the non-extendable existing fleet:
+    # pypsa disallows committable=True together with p_nom_extendable=True, and the
+    # "extendable conventional" block below is exactly that, so it's deliberately left alone.
+    # Technologies without an explicit override (e.g. biomass, currently unresearched) fall
+    # back to pypsa's own non-committable defaults rather than leaving NaN on the generators.
+    if "committable" in ppl_grouped.columns:
+        generator_kwargs["committable"] = ppl_grouped["committable"].fillna(False)
+    if "p_min_pu" in ppl_grouped.columns:
+        generator_kwargs["p_min_pu"] = ppl_grouped["p_min_pu"].fillna(0.0)
+    if "ramp_limit_up" in ppl_grouped.columns:
+        # NaN left as-is: pypsa's own default, meaning "unconstrained", not "zero ramp".
+        generator_kwargs["ramp_limit_up"] = ppl_grouped["ramp_limit_up"]
+    if "ramp_limit_down" in ppl_grouped.columns:
+        generator_kwargs["ramp_limit_down"] = ppl_grouped["ramp_limit_down"]
+    if "min_up_time" in ppl_grouped.columns:
+        generator_kwargs["min_up_time"] = ppl_grouped["min_up_time"].fillna(0).astype(int)
+    if "min_down_time" in ppl_grouped.columns:
+        generator_kwargs["min_down_time"] = (
+            ppl_grouped["min_down_time"].fillna(0).astype(int)
+        )
+    if "start_up_cost_per_mw" in ppl_grouped.columns:
+        # Config stores a per-MW rate (matches how "investment" etc. are specified); pypsa's
+        # own start_up_cost attribute wants a flat currency lump sum per start, so scale by
+        # this generator's actual p_nom here rather than storing an already-scaled value.
+        generator_kwargs["start_up_cost"] = (
+            ppl_grouped["start_up_cost_per_mw"].fillna(0) * ppl_grouped["p_nom"]
+        )
+
+    n.madd(
+        "Generator",
+        ppl_grouped["bus"] + " " + ppl_grouped["carrier_gy"],
+        **generator_kwargs,
     )
 
     # Add extendable conventional generators

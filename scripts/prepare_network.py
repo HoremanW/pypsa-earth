@@ -206,7 +206,14 @@ def set_transmission_limit(n, ll_type, factor, costs, lines, links):
         + n.links.loc[links_dc_b, "p_nom"] @ n.links.loc[links_dc_b, col]
     )
 
-    update_transmission_costs(n, costs)
+    # Bug: this call previously omitted length_factor, silently falling back to
+    # update_transmission_costs()'s own default of 1.0 and overwriting the
+    # correctly-computed (length_factor=1.25) capital_cost that add_electricity.py
+    # had already set -- found by checking a solved network's actual n.lines.capital_cost
+    # against the expected length*length_factor*rate formula; it matched length_factor=1.0
+    # to floating-point noise, not the configured 1.25. snakemake.params.lines is the
+    # whole `lines:` config block, already passed to this rule for `s_max_pu` above.
+    update_transmission_costs(n, costs, snakemake.params.lines["length_factor"])
 
     if factor == "opt" or float(factor) > 1.0:
         n.lines["s_nom_min"] = lines_s_nom

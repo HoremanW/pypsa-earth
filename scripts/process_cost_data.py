@@ -355,7 +355,26 @@ def load_costs(
 
     costs = costs.value.unstack().fillna(config["fill_values"])
 
-    for attr in ("investment", "lifetime", "FOM", "VOM", "efficiency", "fuel"):
+    for attr in (
+        "investment",
+        "lifetime",
+        "FOM",
+        "VOM",
+        "efficiency",
+        "fuel",
+        # Unit commitment parameters: not present in any technology-data source (checked --
+        # zero UC-related columns in the raw cost tables), so these only ever come from a
+        # config override. Technologies not listed under a given attr in config keep NaN
+        # here; attach_conventional_generators() in add_electricity.py fills those back to
+        # pypsa's own non-committable defaults rather than propagating NaN onto generators.
+        "committable",
+        "p_min_pu",
+        "ramp_limit_up",
+        "ramp_limit_down",
+        "min_up_time",
+        "min_down_time",
+        "start_up_cost_per_mw",
+    ):
         overwrites = config.get(attr)
         if overwrites is not None:
             overwrites = pd.Series(overwrites)
@@ -523,7 +542,27 @@ def prepare_costs(
     )
     modified_costs = modified_costs.fillna(fill_values)
 
-    for attr in ("investment", "lifetime", "FOM", "VOM", "efficiency", "fuel"):
+    for attr in (
+        "investment",
+        "lifetime",
+        "FOM",
+        "VOM",
+        "efficiency",
+        "fuel",
+        # Unit commitment parameters -- see the matching block in load_costs() above.
+        # Missing here until now: prepare_costs() (the "_sec"/sector-coupled scope)
+        # never carried these overrides, so committable/p_min_pu/etc. were silently
+        # absent from every costs_{year}_sec.csv despite being set under costs: in
+        # the config -- found via a KeyError in redispatch_with_uc.py reading a
+        # freshly generated costs_2030_sec.csv that had none of these columns.
+        "committable",
+        "p_min_pu",
+        "ramp_limit_up",
+        "ramp_limit_down",
+        "min_up_time",
+        "min_down_time",
+        "start_up_cost_per_mw",
+    ):
         overwrites = config.get(attr)
         if overwrites is not None:
             overwrites = pd.Series(overwrites)
@@ -539,6 +578,18 @@ def prepare_costs(
         annuity_factor(v) * v["investment"] * Nyears
         for _, v in modified_costs.iterrows()
     ]
+
+    # Mirror load_costs()'s special-casing, missing here until now (found the same
+    # way as the unit-commitment gap above: comparing a freshly generated
+    # costs_{year}_sec.csv against costs_{year}_elec.csv for the same run turned up
+    # a solar capital cost 30.7% higher in the _sec table and OCGT/CCGT CO2 intensity
+    # silently zeroed instead of inherited from gas).
+    modified_costs.at["solar", "fixed"] = (
+        config["rooftop_share"] * modified_costs.at["solar-rooftop", "fixed"]
+        + (1 - config["rooftop_share"]) * modified_costs.at["solar-utility", "fixed"]
+    )
+    modified_costs.at["OCGT", "CO2 intensity"] = modified_costs.at["gas", "CO2 intensity"]
+    modified_costs.at["CCGT", "CO2 intensity"] = modified_costs.at["gas", "CO2 intensity"]
 
     return modified_costs
 

@@ -165,6 +165,12 @@ if __name__ == "__main__":
             s_nom_extendable=True,
             # TODO: Check if minimum value needs to be set.
             s_nom_min=min_expansion_option,
+            # Finite cap required by pypsa's transmission_losses constraint (define_loss_
+            # constraints raises if any extendable branch has s_nom_max = inf, which these
+            # lines would otherwise inherit from the global `lines.s_nom_max: .inf` default).
+            # 1000 MVA is comfortably above anything these connectivity-guarantee lines have
+            # ever actually built (max observed so far: ~99 MVA), so it isn't meant to bind.
+            s_nom_max=1000.0,
             length=new_kedge_lines.length,
             capital_cost=new_kedge_lines.length
             * costs.at["HVAC overhead", "capital_cost"],

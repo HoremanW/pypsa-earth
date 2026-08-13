@@ -12,21 +12,21 @@ logging:
 results_dir: results/
 summary_dir: results/
 
-foresight: overnight
+foresight: overnight # myopic, perfect, or overnight
 
 
 countries: ["SN"]
 # Can be replaced by country ["NG", "BJ"], continent ["Africa"] or user-specific region, see more at https://pypsa-earth.readthedocs.io/en/latest/user-guide/configuration/#top-level-configuration
 
 enable:
-  retrieve_databundle: true #  Recommended 'true', for the first run. Otherwise data might be missing.
-  retrieve_databundle_sector: true
+  retrieve_databundle: false #  Recommended 'true', for the first run. Otherwise data might be missing.
+  retrieve_databundle_sector: false
   retrieve_cost_data: true # true: retrieves cost data from technology data and saves in resources/costs.csv, false: uses cost data in data/costs.csv
   retrieve_cutout: false # true: retrieves cutout from atlite and saves in resources/cutouts, false: uses cutout in data/cutouts
-  download_osm_data: true # If 'true', OpenStreetMap data will be downloaded for the above given countries
+  download_osm_data: false # If 'true', OpenStreetMap data will be downloaded for the above given countries
   download_global_buildings: false # If 'true', GlobalMLBuildingFootprints data will be downloaded for the above given countries
-  build_natura_raster: true # If 'true', then an exclusion raster will be build. Otherwise use pregenerated raster.
-  build_cutout: true # If 'true', then the cutout will be build. Otherwise use pregenerated cutout. Note that the cutout is built according to the `snapshots` date range and `countries` selection.
+  build_natura_raster: false # If 'true', then an exclusion raster will be build. Otherwise use pregenerated raster.
+  build_cutout: false # If 'true', then the cutout will be build. Otherwise use pregenerated cutout. Note that the cutout is built according to the `snapshots` date range and `countries` selection.
   # If "build_cutout" : true, then environmental data is extracted according to `snapshots` date range and `countries`
   # requires cds API key https://cds.climate.copernicus.eu/how-to-api
   # More information https://atlite.readthedocs.io/en/latest/introduction.html#datasets
@@ -35,30 +35,30 @@ enable:
 
 
 
-custom_rules: [] # Default empty [] or link to custom rule file e.g. ["my_folder/my_rules.smk"] that add rules to Snakefile
+custom_rules: ["custom_rules/patch_transmission.smk"] # Default empty [] or link to custom rule file e.g. ["my_folder/my_rules.smk"] that add rules to Snakefile
 
 run:
-  name: "" # use this to keep track of runs with different settings
-  sector_name: "" # use this to keep track of sector scenario runs
+  name: "uc_no_bess_2040" # use this to keep track of runs with different settings
+  sector_name: "uc_no_bess_2040" # use this to keep track of sector scenario runs
   shared_cutouts: true # set to true to share the default cutout(s) across runs
   # Note: value false requires build_cutout to be enabled
-  allow_scenario_failure: false # If True, the workflow will continue even if a scenario in run_scnenario fails
+  allow_scenario_failure: true # If True, the workflow will continue even if a scenario in run_scnenario fails
 
 scenario:
   simpl: [""]
-  ll: ["copt"]
-  clusters: [4]
-  opts: [Co2L-3h]
+  ll: ["vopt"]
+  clusters: [24]
+  opts: [1h]
   planning_horizons: # investment years for myopic and perfect; or costs year for overnight
-  - 2030
+  - 2040
   sopts:
-  - "144h"
+  - "336seg"
   demand:
   - "AB"
 
 snapshots:
   start: "2013-01-01"
-  end: "2013-01-08"
+  end: "2014-01-01"
   inclusive: "left" # end is not inclusive
 
 # definition of the Coordinate Reference Systems
@@ -76,8 +76,8 @@ natura: # only relevant when using build_natura_raster: true
 # download_osm_data_nprocesses: 10  # (optional) number of threads used to download osm data
 
 augmented_line_connection:
-  add_to_snakefile: false # If True, includes this rule to the workflow
-  connectivity_upgrade: 2 # Min. lines connection per node,
+  add_to_snakefile: True # If True, includes this rule to the workflow
+  connectivity_upgrade: 1 # Min. lines connection per node,
   # https://networkx.org/documentation/stable/reference/algorithms/generated/networkx.algorithms.connectivity.edge_augmentation.k_edge_augmentation.html#networkx.algorithms.connectivity.edge_augmentation.k_edge_augmentation
   new_line_type: ["HVAC"] # Expanded lines can be either ["HVAC"] or ["HVDC"] or both ["HVAC", "HVDC"]
   min_expansion: 1 # [MW] New created line expands by float/int input
@@ -89,16 +89,16 @@ cluster_options:
     algorithm: kmeans # choose from: [hac, kmeans]
     feature: solar+onwind-time # only for hac. choose from: [solar+onwind-time, solar+onwind-cap, solar-time, solar-cap, solar+offwind-cap] etc.
     exclude_carriers: []
-    remove_stubs: true
+    remove_stubs: false
     remove_stubs_across_borders: false
-    p_threshold_drop_isolated: 20 # [MW] isolated (sub)networks or nodes are being discarded if total mean power is below the specified threshold
-    p_threshold_merge_isolated: 300 # [MW] isolated (sub)networks or nodes are being merged into a single isolated bus if total mean power is below the specified threshold
+    p_threshold_drop_isolated: 0 # [MW] isolated (sub)networks or nodes are being discarded if total mean power is below the specified threshold
+    p_threshold_merge_isolated: 0 # [MW] isolated (sub)networks or nodes are being merged into a single isolated bus if total mean power is below the specified threshold
     s_threshold_fetch_isolated: false # [-] a share of the national load for merging an isolated network into a backbone network
   cluster_network:
     algorithm: kmeans
     feature: solar+onwind-time
     exclude_carriers: []
-  alternative_clustering: false # "False" use Voronoi shapes, "True" use GADM shapes
+  alternative_clustering: False # "False" use Voronoi shapes, "True" use GADM shapes
   distribute_cluster: ["load"] # Distributes cluster nodes per country according to ['load'],['pop'] or ['gdp']
   out_logging: true # When "True", logging is printed to console
   aggregation_strategies:
@@ -112,6 +112,9 @@ cluster_options:
       committable: any
       ramp_limit_up: max
       ramp_limit_down: max
+      min_up_time: max # not pypsa's own default ("consense", i.e. requires exact agreement) -- extendable generators (min_up_time=0, schema default) and existing ones (min_up_time set by the costs.committable block above) share a bus+carrier and get merged during clustering, so an exact-agreement strategy hard-crashes here. max mirrors the existing conservative choice for ramp_limit_up/down.
+      min_down_time: max # same reasoning as min_up_time
+      start_up_cost: mean # same reasoning as marginal_cost below
       efficiency: mean
       build_year: mean
       lifetime: mean
@@ -176,10 +179,10 @@ base_network:
 load_options:
   source: "gegis" # "demcast" or "gegis"
   weather_year: 2013 # Weather year of the load profile
-  prediction_year: 2030 # Valid only if "gegis" used as a source
+  prediction_year: 2040 # Valid only if "gegis" used as a source
   scale: 1 # scales all load time-series, i.e. 2 = doubles load
 
-co2_budget:
+co2_budget:     #check!!!!!!!!!!!!!!!!
   enable: false
   override_co2opt: true
   co2base_value: co2limit # choose from: [co2limit, co2base, absolute, {float}]
@@ -193,8 +196,8 @@ co2_budget:
     2050: 0.1
 
 electricity:
-  base_voltage: 380.
-  voltages: [132., 220., 300., 380., 500., 750.]
+  base_voltage: 225. # Senegal's actual transmission backbone -- verified against raw base.nc: 225kV carries 88.5% of line thermal capacity and 92.4% of line length vs the 90kV secondary layer; 380kV doesn't exist in Senegal's real grid data.
+  voltages: [90., 132., 220., 225., 300., 380., 500., 750.]
   co2limit: 7.75e+7 # European default, 0.05 * 3.1e9*0.5, needs to be adjusted for Africa
   co2base: 1.487e+9 # European default, adjustment to Africa necessary
   agg_p_nom_limits: # enables to set country-wise maximum and minimum generation capacities for generators (e.g. renewables, nuclear, and geothermal)
@@ -211,22 +214,20 @@ electricity:
     contingency: 0 # fixed capacity in MW
 
   max_hours:
-    battery: 6
+    battery: 8
     H2: 168
 
   extendable_carriers:
-      # Note: For landlocked countries (e.g., Jordan, Austria, Switzerland), remove 'offwind-ac' and 'offwind-dc'
-          # from the Generator list below, as these offshore wind technologies require coastline access.
-    Generator: [solar, onwind, offwind-ac, offwind-dc, OCGT]
-    StorageUnit: [] # battery, H2
-    Store: [battery, H2]
-    Link: [] # H2 pipeline
+    Generator: [solar, onwind, OCGT, CCGT, oil, coal, biomass]          # was: [solar, onwind, offwind-ac, offwind-dc, OCGT]
+    StorageUnit: []
+    Store: []              # no_bess: was [battery]
+    Link: []
 
-  powerplants_filter: (DateOut >= 2022 or DateOut != DateOut) and (DateIn <= 2023 or DateIn != DateIn)
+  powerplants_filter: (DateOut >= 2040 or DateOut != DateOut) and (DateIn <= 2040 or DateIn != DateIn)
   custom_powerplants: false #  "false" use only powerplantmatching (ppm) data, "merge" combines ppm and custom powerplants, "replace" use only custom powerplants
 
-  conventional_carriers: [nuclear, oil, OCGT, CCGT, coal, lignite, geothermal, biomass]
-  renewable_carriers: [solar, onwind, offwind-ac, offwind-dc]
+  conventional_carriers: [oil, OCGT, CCGT, coal, biomass]
+  renewable_carriers: [solar, onwind, hydro]
 
   estimate_renewable_capacities:
     stats: "irena" # False, = greenfield expansion, 'irena' uses IRENA stats to add expansion limits
@@ -235,7 +236,7 @@ electricity:
     p_nom_max: false # sets the expansion constraint, False to deactivate this option and use estimated renewable potentials determine by the workflow, float scales the p_nom_min factor accordingly
     technology_mapping:
       # Wind is the Fueltype in ppm.data.Capacity_stats, onwind, offwind-{ac,dc} the carrier in PyPSA-Earth
-      Offshore: [offwind-ac, offwind-dc]
+      Offshore: []
       Onshore: [onwind]
       PV: [solar]
 
@@ -243,6 +244,7 @@ lines:
   ac_types:
     132.: "243-AL1/39-ST1A 20.0"
     220.: "Al/St 240/40 2-bundle 220.0"
+    225.: "Al/St 240/40 2-bundle 220.0" # no dedicated 225kV entry exists in pypsa's own line-type library; 220kV is the closest standard class and electrically equivalent.
     300.: "Al/St 240/40 3-bundle 300.0"
     380.: "Al/St 240/40 4-bundle 380.0"
     500.: "Al/St 240/40 4-bundle 380.0"
@@ -250,7 +252,7 @@ lines:
   dc_types:
     500.: "HVDC XLPE 1000"
   s_max_pu: 0.7
-  s_nom_max: .inf
+  s_nom_max: 100000 # [MW] large-but-finite, not .inf: pypsa's loss approximation (solving.options.transmission_losses) needs a finite bound to build its piecewise-linear segments against, and raises a hard error otherwise once lines are extendable (ll: vopt). 100 GW is far beyond anything this system could ever economically build (peak demand is on the order of 1-2 GW), so it's "unbounded" in every practical sense without breaking the loss constraint.
   s_nom_max_min: -.inf
   length_factor: 1.25
   under_construction: "zero" # 'zero': set capacity to zero, 'remove': remove, 'keep': with full capacity
@@ -271,8 +273,8 @@ atlite:
   cutouts:
     cutout-2013-era5:
       module: era5
-      dx: 0.3 # cutout resolution
-      dy: 0.3 # cutout resolution
+      dx: 0.25 # cutout resolution
+      dy: 0.25 # cutout resolution
       # The cutout time is automatically set by the snapshot range. See `snapshot:` option above and 'build_cutout.py'.
       # time: ["2013-01-01", "2014-01-01"]  # to manually specify a different weather year (~70 years available)
       # The cutout spatial extent [x,y] is automatically set by country selection. See `countires:` option above and 'build_cutout.py'.
@@ -310,43 +312,6 @@ renewable:
     potential: simple # or conservative
     clip_p_max_pu: 1.e-2
     extendable: true
-  offwind-ac:
-    cutout: auto
-    resource:
-      method: wind
-      turbine: NREL_ReferenceTurbine_5MW_offshore
-    capacity_per_sqkm: 2
-    # correction_factor: 0.8855
-    # proxy for wake losses
-    # from 10.1016/j.energy.2018.08.153
-    # until done more rigorously in #153
-    copernicus:
-      grid_codes: [80, 200]
-    natura: true
-    max_depth: 50
-    max_shore_distance: 30000
-    potential: simple # or conservative
-    clip_p_max_pu: 1.e-2
-    extendable: true
-  offwind-dc:
-    cutout: auto
-    resource:
-      method: wind
-      turbine: NREL_ReferenceTurbine_5MW_offshore
-    # ScholzPhd Tab 4.3.1: 10MW/km^2
-    capacity_per_sqkm: 3
-    # correction_factor: 0.8855
-    # proxy for wake losses
-    # from 10.1016/j.energy.2018.08.153
-    # until done more rigorously in #153
-    copernicus:
-      grid_codes: [80, 200]
-    natura: true
-    max_depth: 50
-    min_shore_distance: 30000
-    potential: simple # or conservative
-    clip_p_max_pu: 1.e-2
-    extendable: true
   solar:
     cutout: auto
     resource:
@@ -377,7 +342,7 @@ renewable:
       flowspeed: 1.0 # m/s
       # weight_with_height: false
       # show_progress: true
-    carriers: []
+    carriers: [hydro]
     PHS_max_hours: 6
     hydro_max_hours: "energy_capacity_totals_by_country" # not active
     hydro_max_hours_default: 6.0 # (optional, default 6) Default value of max_hours for hydro when NaN values are found
@@ -414,9 +379,9 @@ renewable:
 # TODO: Needs to be adjusted for Africa.
 # Costs Configuration
 costs:
-  year: 2030 # cost file selection, i.e. costs_2030.csv in this case; reference year for costs is always 2020
+  year: 2040 # cost file selection, i.e. costs_2030.csv in this case; reference year for costs is always 2020
   technology_data_version: v0.13.2
-  discountrate: [0.071] #, 0.086, 0.111]
+  discountrate: [0.07] #, 0.086, 0.111]
   country_specific_data: "" # (optional) Reference to the desired technology-data directory for techno-economic input data; Only "" and "US" supported, for other values check the technology-data output directory
   # Only needed if "US" is selected as `country_specific_data`, otherwise ignore
   cost_scenario: "moderate" # only used if `country_specific_data: "US"`; can be "moderate", "advanced" or "conservative"
@@ -460,6 +425,88 @@ costs:
   #   CCGT: 25.0
   # efficiency: # per unit
   #   CCGT: 0.58
+
+  # --- Unit commitment overrides -----------------------------------------------------
+  # Not present in any technology-data source (checked directly: zero UC-related columns
+  # in the resolved cost tables), so these only exist via this override. Applied only to
+  # the existing/non-extendable fleet in attach_conventional_generators() -- pypsa disallows
+  # committable=True together with p_nom_extendable=True, and OCGT/CCGT/coal/oil are all in
+  # electricity.extendable_carriers.Generator, so new-build capacity of these carriers stays
+  # continuous/non-committable regardless of this section.
+  # biomass INCLUDED: CO2 intensity for this carrier is unset in the raw cost data and falls
+  # back to fill_values.CO2 intensity: 0 above, i.e. this model already treats biomass as
+  # zero-CO2 -- meaning it's the only dispatchable thermal carrier that stays unaffected if
+  # a CO2 budget/price is ever turned on (currently both are disabled), so its dispatch
+  # profile could shift a lot under that scenario. Worth having real UC behaviour for it now.
+  #
+  # min_load / ramp_rate / OCGT & coal values: Agora Energiewende (2017), "Flexibility in
+  # thermal power plants", Table 1 ("most commonly used" tier, not the state-of-the-art
+  # tier -- more representative of Senegal's fleet), https://www.agora-energiewende.de/
+  # fileadmin/Projekte/2017/Flexibility_in_thermal_plants/115_flexibility-report-WEB.pdf
+  # min_load / ramp_rate / start-up time for biomass: Danish Energy Agency, "Technology Data
+  # for Generation of Electricity and District Heating", Ch.09 "Biomass CHP and HOP plants",
+  # datasheet "Medium Straw CHP, 80 MW feed" (p.168), https://ens.dk/sites/ens.dk/files/
+  # Statistik/technology_data_catalogue_for_el_and_dh_-_0009.pdf -- same DEA catalogue family
+  # already used for this carrier's capex/efficiency/lifetime elsewhere in the cost data.
+  # Straw CHP used as a representative solid-biomass steam-cycle proxy (Senegal's actual
+  # biomass fuel, e.g. groundnut shells/bagasse, differs, but flexibility characteristics at
+  # this scale are driven mainly by steam-cycle class, not fuel type specifically).
+  # min_up_time/min_down_time for OCGT/coal/biomass are NOT the same metric as the cited
+  # "start-up time" (time to bring a unit online) -- they're a modelling proxy derived from
+  # it (operators avoid re-cycling a unit shortly after a costly start), not a direct
+  # citation of that specific parameter. Biomass is the one exception where the DEA figures
+  # (2h warm / 8h cold) are used directly as-is, since they're already clean round numbers.
+  # start_up_cost_per_mw remains the weakest-sourced figure for OCGT/coal/oil/biomass -- see
+  # BESS_UC_Input_Values.xlsx for the full citation trail and why the best identified
+  # source for OCGT/coal (NREL/SR-5500-55433) couldn't be pulled directly in this
+  # environment, and why no start-up cost is reported for biomass in the DEA catalogue at all.
+  # CCGT and oil sourcing unchanged from before (Energies 17(1):51 2024; Wartsila product
+  # literature respectively) -- see Excel sheet for exact citations.
+  committable:
+    OCGT: true
+    CCGT: true
+    coal: true
+    oil: true
+    biomass: true
+  p_min_pu: # per unit of p_nom
+    OCGT: 0.45 # Agora Table 1, "most commonly used" OCGT: 40-50% -> midpoint
+    CCGT: 0.5
+    coal: 0.4 # Agora Table 1, "most commonly used" hard coal: 25-40% -> upper (more conservative) end
+    oil: 0.15
+    biomass: 0.4 # DEA "Medium Straw CHP, 80 MW feed": minimum load 40% of full load
+  ramp_limit_up: # per unit of p_nom, per snapshot (1h here) -- NOT %/min
+    OCGT: 1.0 # Agora Table 1: 8-12%/min ("most commonly used") -> x60 = 480-720%/hr -> unconstrained at 1h
+    CCGT: 0.6
+    coal: 0.9 # Agora Table 1: 1.5-4%/min ("most commonly used") -> x60 = 90-240%/hr -> low end used, capped at 1.0
+    oil: 1.0 # Wartsila-type HFO/diesel engines, full load in ~2 min -> unconstrained at 1h
+    biomass: 1.0 # DEA: 4%/min secondary regulation -> x60 = 240%/hr -> unconstrained at 1h, capped at 1.0
+  ramp_limit_down: # mirrors ramp_limit_up; no separate down-ramp research done
+    OCGT: 1.0
+    CCGT: 0.6
+    coal: 0.9
+    oil: 1.0
+    biomass: 1.0
+  min_up_time: # number of snapshots (=hours at 1h resolution); see proxy note above
+    OCGT: 1 # Agora Table 1 hot/cold start-up time: 5-11 min -> floored to this model's 1h resolution
+    CCGT: 8
+    coal: 4 # proxy from Agora Table 1 hot start-up time: 2.5-3h
+    oil: 0
+    biomass: 2 # DEA "Medium Straw CHP, 80 MW feed": warm start-up time, used directly (already a clean round hour figure)
+  min_down_time:
+    OCGT: 1
+    CCGT: 11
+    coal: 6 # proxy from Agora Table 1 cold start-up time: 5-10h (lower-middle of range)
+    oil: 0
+    biomass: 8 # DEA "Medium Straw CHP, 80 MW feed": cold start-up time, used directly
+  start_up_cost_per_mw: # currency/MW -- scaled by each generator's p_nom in add_electricity.py
+    OCGT: 40 # weakest-sourced figure in this block -- see BESS_UC_Input_Values.xlsx
+    CCGT: 130
+    biomass: 80 # NOT reported in the DEA catalogue for biomass -- assumed comparable to coal
+    # (similar steam-cycle class) at a modest discount for typically smaller unit sizes. Weakest-sourced figure for this carrier.
+    coal: 100 # weakest-sourced figure in this block -- see BESS_UC_Input_Values.xlsx
+    oil: 20
+  # --- end unit commitment overrides -------------------------------------------------
+
   lines:
     length_factor: 1.25 #to estimate offwind connection costs
 
@@ -528,7 +575,7 @@ export:
   endogenous_price: 400 # EUR/MWh # Market price, for which the hydrogen for endogenous exports is sold. Only considered, if ["export"]["endogenous"] is set to true.
   store: true # [True, False] # specifies whether an export store to balance demand is implemented
   store_capital_costs: "no_costs" # ["standard_costs", "no_costs"] # specifies the costs of the export store. "standard_costs" takes CAPEX of "hydrogen storage tank type 1 including compressor"
-  h2export: [10] # Yearly export demand in TWh. Only considered, if ["export"]["endogenous"] is set to false
+  h2export: [0] # Yearly export demand in TWh. Only considered, if ["export"]["endogenous"] is set to false
   export_profile: "ship" # use "ship" or "constant". Only considered, if ["export"]["endogenous"] is set to false
   ship:
     ship_capacity: 0.4 # TWh # 0.05 TWh for new ones, 0.003 TWh for Susio Frontier, 0.4 TWh according to Hampp2021: "Corresponds to 11360 t H2 (l) with LHV of 33.3333 Mwh/t_H2. Cihlar et al 2020 based on IEA 2019, Table 3-B"
@@ -571,16 +618,16 @@ existing_capacities:
 
 sector:
   enable:
-    heat: true
-    biomass: true
-    industry: true
-    shipping: true
-    aviation: true
-    land_transport: true
-    rail_transport: true
-    agriculture: true
-    residential: true
-    services: true
+    heat: false
+    biomass: false
+    industry: false
+    shipping: false
+    aviation: false
+    land_transport: false
+    rail_transport: false
+    agriculture: false
+    residential: false
+    services: false
 
   gas:
     spatial_gas: true # ALWAYS TRUE
@@ -589,11 +636,11 @@ sector:
     network_data_GGIT_status: ["Construction", "Operating", "Idle", "Shelved", "Mothballed", "Proposed"]
 
   hydrogen:
-    network: true
+    network: false
     H2_retrofit_capacity_per_CH4: 0.6
     network_limit: 2000 #GWkm
     network_routes: gas # "gas or "greenfield". If "gas"  ->  the network data are fetched from ["sector"]["gas"]["network_data"]. If "greenfield"  -> the network follows the topology of electrical transmission lines
-    gas_network_repurposing: true # If true -> ["sector"]["gas"]["network"] is automatically false
+    gas_network_repurposing: false # If true -> ["sector"]["gas"]["network"] is automatically false
     underground_storage: false
     hydrogen_colors: false
     set_color_shares: false
@@ -679,21 +726,51 @@ sector:
     NZ_2030: 0.02
     DF_2030: 0.01
     AB_2030: 0.01
+    BU_2035: 0.00
+    AP_2035: 0.018
+    NZ_2035: 0.085
+    DF_2035: 0.0275
+    AB_2035: 0.0275
+    BU_2040: 0.00
+    AP_2040: 0.032
+    NZ_2040: 0.15
+    DF_2040: 0.045
+    AB_2040: 0.045
+    BU_2045: 0.00
+    AP_2045: 0.046
+    NZ_2045: 0.215
+    DF_2045: 0.0625
+    AB_2045: 0.0625
     BU_2050: 0.00
     AP_2050: 0.06
     NZ_2050: 0.28
     DF_2050: 0.08
-    AB_2050: 0.08
   land_transport_electric_share: # 1 means all EVs  # This leads to problems when non-zero HERE
     BU_2030: 0.00
     AP_2030: 0.075
     NZ_2030: 0.13
     DF_2030: 0.01
     AB_2030: 0.01
+    BU_2035: 0.00
+    AP_2035: 0.16125
+    NZ_2035: 0.2675
+    DF_2035: 0.01025
+    AB_2035: 0.01025
+    BU_2040: 0.00
+    AP_2040: 0.2475
+    NZ_2040: 0.405
+    DF_2040: 0.0105
+    AB_2040: 0.0105
+    BU_2045: 0.00
+    AP_2045: 0.33375
+    NZ_2045: 0.5425
+    DF_2045: 0.01075
+    AB_2045: 0.01075
     BU_2050: 0.00
     AP_2050: 0.42
     NZ_2050: 0.68
     DF_2050: 0.011
+    AB_2050: 0.011
 
   dynamic_transport:
     enable: false # If "True", then the BEV and FCEV shares are obtained depending on the "Co2L"-wildcard (e.g. "Co2L0.70: 0.10"). If "False", then the shares are obtained depending on the "demand" wildcard and "planning_horizons" wildcard as listed below (e.g. "DF_2050: 0.08")
@@ -726,14 +803,14 @@ sector:
 
   # ------------------- BIOMASS SECTOR -------------------
 
-  biomass_transport: true # biomass transport between nodes
+  biomass_transport: false # biomass transport between nodes
   biomass_transport_default_cost: 0.1 #EUR/km/MWh
   solid_biomass_potential: 40 # TWh/a, Potential of whole modelled area
   biogas_potential: 0.5 # TWh/a, Potential of whole modelled area
 
   # ------------------- ELECTRICITY DISTRIBUTION GRID -------------------
 
-  electricity_distribution_grid: true # adds low voltage buses and shifts AC loads, BEVs, heat pumps, and resistive heaters, micro CHPs to low voltage buses if technologies are present
+  electricity_distribution_grid: false # adds low voltage buses and shifts AC loads, BEVs, heat pumps, and resistive heaters, micro CHPs to low voltage buses if technologies are present
   enable_electricity_connection_cost: false # adds electricity grid connection costs to fixed capital costs for solar and onwind generators in prepare_sector_network.
   solar_rooftop: # adds distribution side customer rooftop PV (only work if electricity_distribution_grid: true)
     enable: true
@@ -769,26 +846,40 @@ sector:
     NZ_2030: 0.10
     DF_2030: 0.05
     AB_2030: 0.05
+    BU_2035: 0.00
+    AP_2035: 0.0625
+    NZ_2035: 0.165
+    DF_2035: 0.0675
+    AB_2035: 0.0675
+    BU_2040: 0.00
+    AP_2040: 0.125
+    NZ_2040: 0.23
+    DF_2040: 0.085
+    AB_2040: 0.085
+    BU_2045: 0.00
+    AP_2045: 0.1875
+    NZ_2045: 0.295
+    DF_2045: 0.1025
+    AB_2045: 0.1025
     BU_2050: 0.00
     AP_2050: 0.25
     NZ_2050: 0.36
     DF_2050: 0.12
-    AB_2050: 0.12
   airport_sizing_factor: 3
   international_bunkers: false #Whether or not to count the emissions of international aviation and navigation
 
   # ------------------- CCUS & CONVERSION OPTIONS -------------------
 
-  co2_network: true
+  co2_network: false
   co2_sequestration_potential: 200 #MtCO2/a sequestration potential for Europe
   co2_sequestration_cost: 10 #EUR/tCO2 for sequestration of CO2
 
-  methanation: true
-  helmeth: true
-  dac: true
+  methanation: false
+  helmeth: false
+  dac: false
   cc_fraction: 0.9
-  cc: true
-  fischer_tropsch: true
+  cc: false
+  fischer_tropsch: false
   min_part_load_fischer_tropsch: 0.9
 
   # ------------------- INDUSTRY OPTIONS -------------------
@@ -815,14 +906,27 @@ sector:
 solving:
   options:
     formulation: kirchhoff
-    load_shedding: 100 # Set to "false" or willingness to pay in €/kWh, e.g. 100 €/kWh (intersect between macroeconomic and surveybased willingness to pay https://doi.org/10.3389/fenrg.2015.00055)
+    load_shedding: 1 # Set to "false" or willingness to pay in €/kWh, e.g. 100 €/kWh (intersect between macroeconomic and surveybased willingness to pay https://doi.org/10.3389/fenrg.2015.00055)
+    transmission_losses: 2 # Number of piecewise-linear segments approximating I^2R line losses (loss = r_pu_eff * flow^2). 0 = lossless (previous default). NOT a flat loss percentage -- the effective loss fraction is r_pu_eff * flow, so it varies per line and per hour with loading.
     noisy_costs: true
     min_iterations: 4
     max_iterations: 6
     clip_p_max_pu: 0.01
-    skip_iterations: true
+    skip_iterations: false
     track_iterations: false
     # nhours: 10
+
+  # Used only by scripts/solve_redispatch_network.py (stage-2 UC redispatch),
+  # never by stage-1 capacity expansion -- rolling-horizon isn't a coherent
+  # way to make a single annual investment decision, since it would re-decide
+  # extendable capacity independently in every window. horizon/overlap here
+  # are in snapshots (hours, at this config's 1h resolution). Validated
+  # manually at these values: 61 windows, all solved to optimality, ~53 min
+  # total, versus the monolithic full-year UC MILP not finishing its root LP
+  # relaxation within a 30-minute time limit.
+  redispatch_rolling_horizon:
+    horizon: 168 # 1 week
+    overlap: 24 # 1 day -- shared tail between consecutive windows, so the next window can revise it with better foresight instead of each window being solved once and never revisited
 
   solver:
     name: gurobi

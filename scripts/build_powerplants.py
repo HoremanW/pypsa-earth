@@ -293,6 +293,40 @@ def replace_natural_gas_technology(df: pd.DataFrame):
     return df
 
 
+# Coordinate corrections for specific powerplantmatching entries whose source data (GEM/GPD/GEO)
+# has a bad lat/lon that would otherwise place the plant far from its real location -- and,
+# since bus assignment below is nearest-substation by raw lat/lon, silently snap it onto the
+# wrong grid node.
+#   Cap Des Biches (327 MW oil, Senegal): source lat is 17.7197, ~330 km north of the real
+#   plant, out in the Atlantic off Mauritania. The real station sits at the coast near
+#   Rufisque/Bargny, alongside Bel Air (14.717, -17.478) and Kounoune (14.744, -17.267) in this
+#   same dataset. The corrupted value looks like a "1"->"7" digit transposition in the leading
+#   integer part (14.7197 -> 17.7197), so the fix reverses exactly that and keeps the fractional
+#   part and the (plausible, matches its neighbors) longitude untouched.
+POWERPLANT_COORDINATE_FIXES = {
+    "Cap Des Biches": {"lat": 14.7197},
+}
+
+
+def fix_powerplant_coordinates(ppl: pd.DataFrame) -> pd.DataFrame:
+    """
+    Apply targeted lat/lon corrections for powerplantmatching entries known to carry a bad
+    source coordinate (see POWERPLANT_COORDINATE_FIXES above). Must run before nearest-bus
+    assignment, which uses these columns directly.
+    """
+    for name, fix in POWERPLANT_COORDINATE_FIXES.items():
+        mask = ppl["Name"] == name
+        if not mask.any():
+            continue
+        for col, value in fix.items():
+            before = ppl.loc[mask, col].tolist()
+            ppl.loc[mask, col] = value
+            logger.info(
+                f"Patched powerplant coordinate: {name!r} {col} {before} -> {value}"
+            )
+    return ppl
+
+
 if __name__ == "__main__":
     if "snakemake" not in globals():
         from _helpers import mock_snakemake
@@ -352,6 +386,8 @@ if __name__ == "__main__":
     ppl = add_custom_powerplants(ppl, snakemake.input, snakemake.config).query(
         ppl_query
     )  # add carriers from own powerplant files
+
+    ppl = fix_powerplant_coordinates(ppl)
 
     # define unique index
     ppl = ppl.reset_index(drop=True)
