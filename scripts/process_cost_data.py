@@ -428,6 +428,28 @@ def load_costs(
         costs.loc["battery inverter"],
         max_hours=max_hours["battery"],
     )
+    # costs_for_storage() only sets capital_cost/marginal_cost/co2_emissions, leaving
+    # "efficiency" NaN for the derived "battery" row (not generalised here since H2's
+    # combination differs -- two distinct devices, electrolysis + fuel cell, not applicable
+    # via a single link1). Left unset, this NaN silently became PyPSA's own component-schema
+    # default of 1.0 once attach_existing_batteries() passed it through to a StorageUnit --
+    # i.e. every existing/committed battery was modelled as perfectly, losslessly efficient.
+    # "battery storage" (cells) has no efficiency of its own in the raw source data (assumed
+    # near-lossless), so the round-trip figure is just the inverter's own DC round-trip
+    # efficiency -- matching how attach_existing_batteries() already sqrt-splits this into
+    # per-leg efficiency_store/efficiency_dispatch (see also the matching fix in
+    # add_extra_components.py for the new-build Store+Link representation).
+    costs.at["battery", "efficiency"] = costs.at["battery inverter", "efficiency"]
+    # Same issue as efficiency above: costs_for_storage() hardcodes marginal_cost=0.0 for the
+    # derived row, so any VOM placed on "battery inverter" (e.g. a degradation/cycle-aging
+    # cost) would silently never reach the existing/committed StorageUnit representation,
+    # which reads costs.at["battery", "marginal_cost"] directly. StorageUnit charges
+    # marginal_cost once per MWh of p_dispatch (discharge only, not charging), which is
+    # exactly the semantics a per-MWh-delivered degradation cost needs -- no further split
+    # required here (contrast with the new-build charger/discharger Link pair in
+    # add_extra_components.py, which needs an explicit charger/discharger split to get the
+    # same once-per-discharge semantics).
+    costs.at["battery", "marginal_cost"] = costs.at["battery inverter", "marginal_cost"]
     costs.loc["H2"] = costs_for_storage(
         costs.loc["hydrogen storage tank"],
         costs.loc["fuel cell"],

@@ -38,8 +38,8 @@ enable:
 custom_rules: ["custom_rules/patch_transmission.smk"] # Default empty [] or link to custom rule file e.g. ["my_folder/my_rules.smk"] that add rules to Snakefile
 
 run:
-  name: "uc_no_bess_2040" # use this to keep track of runs with different settings
-  sector_name: "uc_no_bess_2040" # use this to keep track of sector scenario runs
+  name: "LP_no_bess_2040" # use this to keep track of runs with different settings
+  sector_name: "LP_no_bess_2040" # use this to keep track of sector scenario runs
   shared_cutouts: true # set to true to share the default cutout(s) across runs
   # Note: value false requires build_cutout to be enabled
   allow_scenario_failure: true # If True, the workflow will continue even if a scenario in run_scnenario fails
@@ -536,11 +536,11 @@ costs:
   # CCGT and oil sourcing unchanged from before (Energies 17(1):51 2024; Wartsila product
   # literature respectively) -- see Excel sheet for exact citations.
   committable:
-    OCGT: true
-    CCGT: true
-    coal: true
-    oil: true
-    biomass: true
+    OCGT: false
+    CCGT: false
+    coal: false
+    oil: false
+    biomass: false
   p_min_pu: # per unit of p_nom
     OCGT: 0.45 # Agora Table 1, "most commonly used" OCGT: 40-50% -> midpoint
     CCGT: 0.5

@@ -140,6 +140,7 @@ def load_powerplants(
         "ocgt": "OCGT",
         "ccgt": "CCGT",
         "bioenergy": "biomass",
+        "solid biomass": "biomass",
         "ccgt, thermal": "CCGT",
         "hard coal": "coal",
     }
@@ -1190,10 +1191,43 @@ def attach_existing_batteries(
 
     _add_missing_carriers_from_costs(n, costs, ["battery"])
 
+    default_max_hours = snakemake.params.electricity["max_hours"]["battery"]
+
+    # powerplants.csv carries a real per-asset "Duration" column (e.g. 2-4h for Senegal's
+    # actual existing batteries). powerplantmatching's own to_pypsa_names() (called upstream
+    # in load_powerplants()) already renames "Duration" -> "max_hours" directly, so `ppl`
+    # arrives here with real per-asset values already in "max_hours", not in a column called
+    # "duration" -- checking for the latter is always false and previously caused every
+    # asset's real duration to be silently overwritten by the single config-wide
+    # default_max_hours (8h) instead, found via a ~2.4x mismatch between modelled (712 MWh,
+    # implying 8h) and actual (297 MWh, implying a ~3.3h capacity-weighted average) existing
+    # battery energy capacity. Missing/non-positive values fall back to the config default.
+    batteries = batteries.copy()
+    batteries["max_hours"] = batteries["max_hours"].where(
+        batteries["max_hours"] > 0, default_max_hours
+    ).fillna(default_max_hours)
+
+    # costs.at["battery", "capital_cost"] is a single figure blended at the config-wide
+    # default_max_hours (8h) via costs_for_storage() -- charging every asset that value
+    # regardless of its own real duration would overstate the cost of shorter-duration
+    # assets (e.g. a real 2h battery billed as if it carried 8h of storage capex). Recompute
+    # per-asset from the un-blended inverter/storage components using each asset's own
+    # max_hours instead, matching what costs_for_storage() does but per-row.
+    battery_inverter_capital_cost = costs.at["battery inverter", "capital_cost"]
+    battery_storage_capital_cost = costs.at["battery storage", "capital_cost"]
+    batteries["capital_cost"] = (
+        battery_inverter_capital_cost
+        + batteries["max_hours"] * battery_storage_capital_cost
+    )
+
     # Aggregate batteries by (bus, carrier, grouping_year)
     batteries_grouped = aggregate_ppl_by_bus_carrier_year(batteries)
-
-    max_hours = snakemake.params.electricity["max_hours"]["battery"]
+    batteries_grouped["max_hours"] = batteries_grouped["max_hours"].fillna(
+        default_max_hours
+    )
+    batteries_grouped["capital_cost"] = batteries_grouped["capital_cost"].fillna(
+        costs.at["battery", "capital_cost"]
+    )
 
     n.madd(
         "StorageUnit",
@@ -1204,8 +1238,8 @@ def attach_existing_batteries(
         p_nom_extendable=False,
         p_nom_min=batteries_grouped["p_nom"],
         p_nom_max=batteries_grouped["p_nom"],
-        capital_cost=costs.at["battery", "capital_cost"],
-        max_hours=max_hours,
+        capital_cost=batteries_grouped["capital_cost"],
+        max_hours=batteries_grouped["max_hours"],
         efficiency_store=np.sqrt(costs.at["battery", "efficiency"]),
         efficiency_dispatch=np.sqrt(costs.at["battery", "efficiency"]),
         cyclic_state_of_charge=True,
@@ -1216,7 +1250,9 @@ def attach_existing_batteries(
 
     logger.info(
         f"Added {len(batteries_grouped)} existing batteries with total capacity "
-        f"{batteries_grouped.p_nom.sum()/1e3:.2f} GW (max_hours={max_hours})."
+        f"{batteries_grouped.p_nom.sum()/1e3:.2f} GW "
+        f"(per-asset max_hours, mean={batteries_grouped['max_hours'].mean():.2f}, "
+        f"config default was {default_max_hours})."
     )
 
 

@@ -115,10 +115,17 @@ if __name__ == "__main__":
         G, k_edge, avail=complement_edges[["bus0", "bus1", "length"]].values
     )
     new_kedge_lines = pd.DataFrame(augmentation, columns=["bus0", "bus1"])
-    new_kedge_lines["length"] = new_kedge_lines.apply(haversine, axis=1)
-    new_kedge_lines.index = new_kedge_lines.apply(
-        lambda x: f"lines new {x.bus0} <-> {x.bus1}", axis=1
-    )
+    if len(new_kedge_lines):
+        new_kedge_lines["length"] = new_kedge_lines.apply(haversine, axis=1)
+        new_kedge_lines.index = new_kedge_lines.apply(
+            lambda x: f"lines new {x.bus0} <-> {x.bus1}", axis=1
+        )
+    else:
+        # k_edge_augmentation found nothing to add (graph already satisfies k_edge, e.g.
+        # k_edge=1 on an already-connected graph) -- DataFrame.apply(axis=1) on a 0-row
+        # frame can't infer a scalar-per-row return and hands back an empty DataFrame
+        # instead of an empty Series, which crashes the column assignment above.
+        new_kedge_lines["length"] = pd.Series(dtype=float)
 
     # random sampling for long lines above <min DC length [km]>, including min and max distance, excluding interconnectors
     intracountry_edges = complement_edges[~complement_edges["interconnector"]]
@@ -135,7 +142,7 @@ if __name__ == "__main__":
     )
 
     #  add new lines to the network
-    if "HVDC" in list(line_type_option):
+    if "HVDC" in list(line_type_option) and len(new_long_lines):
         n.madd(
             "Link",
             new_long_lines.index,
@@ -154,7 +161,7 @@ if __name__ == "__main__":
             underwater_fraction=0.0,
         )
 
-    if "HVAC" in list(line_type_option):
+    if "HVAC" in list(line_type_option) and len(new_kedge_lines):
         n.madd(
             "Line",
             new_kedge_lines.index,

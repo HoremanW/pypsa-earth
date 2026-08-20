@@ -140,6 +140,15 @@ def attach_stores(n, costs, config):
             "Bus", buses_i + " battery", carrier="battery", **bus_sub_dict
         )
 
+        # The Store's own "p" is signed (positive discharging, negative charging), so a
+        # nonzero marginal_cost here would apply during charging too -- with the sign
+        # flipped, i.e. the model would be *paid* to charge instead of paying a cost. Any
+        # per-MWh cost (e.g. degradation) belongs exclusively on the discharger Link below,
+        # whose flow is one-directional by construction, not here. Keep this explicitly at
+        # 0 rather than costs.at["battery", "marginal_cost"] (which process_cost_data.py now
+        # populates from "battery inverter", for the StorageUnit representation's benefit --
+        # that component's marginal_cost applies only to discharge by PyPSA's own design,
+        # so it doesn't have this problem).
         n.madd(
             "Store",
             b_buses_i,
@@ -148,8 +157,16 @@ def attach_stores(n, costs, config):
             e_cyclic=True,
             e_nom_extendable=True,
             capital_cost=costs.at["battery storage", "capital_cost"],
-            marginal_cost=costs.at["battery", "marginal_cost"],
+            marginal_cost=0.0,
         )
+
+        # costs.at["battery inverter", "efficiency"] is a round-trip figure (DEA labels it
+        # "Round trip efficiency DC"), not a per-leg one. Applying it unsplit to both the
+        # charger and discharger compounds it (0.96 x 0.96 = 92.16% round-trip) instead of
+        # reproducing the intended 96% -- sqrt-split each leg instead, matching how
+        # attach_existing_batteries() already treats this same figure for the StorageUnit
+        # (existing/committed) battery representation, so both representations agree.
+        battery_leg_efficiency = np.sqrt(costs.at["battery inverter", "efficiency"])
 
         n.madd(
             "Link",
@@ -157,19 +174,23 @@ def attach_stores(n, costs, config):
             bus0=buses_i,
             bus1=b_buses_i,
             carrier="battery charger",
-            efficiency=costs.at["battery inverter", "efficiency"],
+            efficiency=battery_leg_efficiency,
             capital_cost=costs.at["battery inverter", "capital_cost"],
             p_nom_extendable=True,
-            marginal_cost=costs.at["battery inverter", "marginal_cost"],
+            marginal_cost=0.0,
         )
 
+        # Any per-MWh cost on "battery inverter" (e.g. a degradation/cycle-aging VOM) is
+        # deliberately applied only here, on the discharger -- once per MWh actually
+        # delivered, not on the charger too (which would double it per full cycle) and not
+        # on the Store (see the signed-p note above).
         n.madd(
             "Link",
             b_buses_i + " discharger",
             bus0=b_buses_i,
             bus1=buses_i,
             carrier="battery discharger",
-            efficiency=costs.at["battery inverter", "efficiency"],
+            efficiency=battery_leg_efficiency,
             p_nom_extendable=True,
             marginal_cost=costs.at["battery inverter", "marginal_cost"],
         )

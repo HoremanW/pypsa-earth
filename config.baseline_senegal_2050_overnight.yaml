@@ -38,15 +38,15 @@ enable:
 custom_rules: ["custom_rules/patch_transmission.smk"] # Default empty [] or link to custom rule file e.g. ["my_folder/my_rules.smk"] that add rules to Snakefile
 
 run:
-  name: "baseline_bess_2030_overnight" # use this to keep track of runs with different settings
-  sector_name: "" # use this to keep track of sector scenario runs
+  name: "baseline_bess_2030_overnight_vopt" # use this to keep track of runs with different settings
+  sector_name: "baseline_bess_2030_overnight_vopt" # use this to keep track of sector scenario runs
   shared_cutouts: true # set to true to share the default cutout(s) across runs
   # Note: value false requires build_cutout to be enabled
   allow_scenario_failure: false # If True, the workflow will continue even if a scenario in run_scnenario fails
 
 scenario:
   simpl: [""]
-  ll: ["v1.0"]
+  ll: ["vopt"]
   clusters: [24]
   opts: [1h]
   planning_horizons: # investment years for myopic and perfect; or costs year for overnight
@@ -249,7 +249,7 @@ lines:
   dc_types:
     500.: "HVDC XLPE 1000"
   s_max_pu: 0.7
-  s_nom_max: .inf
+  s_nom_max: 100000 # [MW] large-but-finite, not .inf: pypsa's loss approximation (solving.options.transmission_losses) needs a finite bound to build its piecewise-linear segments against, and raises a hard error otherwise once lines are extendable (ll: vopt). 100 GW is far beyond anything this system could ever economically build (peak demand is on the order of 1-2 GW), so it's "unbounded" in every practical sense without breaking the loss constraint.
   s_nom_max_min: -.inf
   length_factor: 1.25
   under_construction: "zero" # 'zero': set capacity to zero, 'remove': remove, 'keep': with full capacity
@@ -410,6 +410,22 @@ costs:
     battery inverter: 0.
   emission_prices: # in currency per tonne emission, only used with the option Ep
     co2: 0.
+  investment: # EUR/MW (or EUR/MWh for storage-energy technologies)
+    # BESS CapEx recalibrated to Ember's Oct-2025 real-world "rest of world" (excl. China/US)
+    # project data ($125/kWh combined, 4h+ systems) instead of the DEA/technology-data
+    # catalogue figure, which independent benchmarking (NREL mid case, Ember) showed running
+    # 14-42% above real current market prices and widening with year (see Input_Cost_EDA.ipynb,
+    # Sections 9-12). Split into battery inverter/storage using this model's own DEA-implied
+    # power/energy cost ratio, applied to Ember's total -- so the split logic is unchanged,
+    # only the overall price level is corrected. Year-specific: this value is for 2030
+    # (matches this config's costs.year/planning_horizons); re-derive for other years from the
+    # same notebook if this config's year changes.
+    # This single override reaches BOTH existing (StorageUnit, via the derived "battery" row
+    # = battery_inverter_capital_cost + max_hours x battery_storage_capital_cost in
+    # costs_for_storage()) and new/endogenous (Store+Link, via these rows directly) capacity --
+    # verified by reading process_cost_data.py's derivation order.
+    battery inverter: 88437
+    battery storage: 78488
   # investment: # EUR/MW
   #   CCGT: 830000
   # FOM: # %/year
@@ -781,7 +797,7 @@ solving:
     min_iterations: 4
     max_iterations: 6
     clip_p_max_pu: 0.01
-    skip_iterations: true
+    skip_iterations: false
     track_iterations: false
     # nhours: 10
 

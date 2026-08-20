@@ -413,12 +413,85 @@ costs:
     battery inverter: 0.
   emission_prices: # in currency per tonne emission, only used with the option Ep
     co2: 0.
+  investment: # EUR/MW (or EUR/MWh for storage-energy technologies)
+    # BESS CapEx recalibrated to Ember's Oct-2025 real-world "rest of world" (excl.
+    # China/US) project data ($125/kWh combined, 4h+ systems), rather than the raw
+    # DEA/technology-data catalogue figure -- independent benchmarking (NREL mid case,
+    # Ember) showed the DEA figure running 14-42% above real current market prices.
+    # Split into inverter/storage using this model's own DEA-implied power/energy cost
+    # ratio, applied to Ember's total. Year-specific -- matches this config's year (2035).
+    battery inverter: 75682
+    battery storage: 68696
+  FOM: # %/year -- Ember "How cheap is battery storage?" (Dec 2025), ~2% of capex, routine
+    # maintenance/monitoring/performance-guarantee only -- Ember explicitly excludes
+    # augmentation/degradation from this figure (unlike NREL's 4%, which bundles a
+    # degradation allowance into FOM). Flat percentage, not year-specific.
+    battery inverter: 2.0
+    battery storage: 2.0
+  VOM: # EUR/MWh -- degradation/cycle-aging cost, applied only on "battery inverter" (routed
+    # through to the discharger Link and, via process_cost_data.py, to the existing-battery
+    # StorageUnit's marginal_cost -- both apply it once per MWh actually discharged, not
+    # per MWh cycled through both legs). NOT set on "battery storage": nothing in this
+    # pipeline reads that field for cost application (Store.marginal_cost is deliberately
+    # hardcoded to 0 in add_extra_components.py -- see the signed-p note there), so a value
+    # here would be inert. Formula: storage capex (Ember-anchored, EUR/MWh) / cycle_life
+    # (5000 cycles to 80% SOH, mid of the 4000-6000 real-world grid-scale LFP range).
+    # Year-specific -- matches this config's year (2035).
+    battery inverter: 13.74
+  efficiency: # per unit -- round-trip. DEA's "battery inverter" value (0.96) only covers
+    # the inverter/PCS's own AC-DC-AC conversion loss, not the whole system: NREL "Cost
+    # Projections for Utility-Scale Battery Storage: 2025 Update" (Cole et al. 2025)
+    # explicitly defines round-trip efficiency to include "losses associated with cooling
+    # systems or battery control equipment" and selects 85%, stating it's "well aligned with
+    # published values". Overriding here replaces the inverter-only figure with this
+    # whole-system one, for both the existing (StorageUnit, via the "battery" derived row)
+    # and new-build (Store+Link charger/discharger, sqrt-split) representations -- both now
+    # read this same source. Flat, not year-specific: NREL doesn't project this rising, and
+    # inverter-only efficiency is already close to its physical ceiling (see BESS
+    # efficiency-trend discussion), though the whole-system figure has more headroom than
+    # the inverter-only one did -- no sourced trajectory found for that, so left flat.
+    battery inverter: 0.85
   # investment: # EUR/MW
   #   CCGT: 830000
   # FOM: # %/year
   #   CCGT: 3.35
   # VOM: # EUR/MWh
   #   CCGT: 4.2
+  fuel: # EUR/MWh_th. "gas" inherits to both CCGT and OCGT automatically
+    # (costs.at["OCGT","fuel"] = costs.at["gas","fuel"] etc. in process_cost_data.py, applied
+    # after this override), so overriding "gas" alone is sufficient for both carriers. Oil
+    # deliberately NOT overridden here -- checked against both a global benchmark (Rotterdam
+    # HSFO) and a Senegal-specific figure (the government's own gas-to-power strategy note,
+    # which cites $14/MMBtu HFO as its fossil comparator) and the existing technology-data
+    # default (43.6-52.9 depending on year) already sits between the two, no correction needed.
+    #
+    # gas: Senegal's future gas supply is domestic (GTA/Sangomar) and piped, not
+    # internationally-traded LNG -- so a European/Asian hub benchmark (TTF/JKM) is the wrong
+    # comparison, and is additionally distorted right now by an active Gulf LNG supply
+    # disruption. Used instead: Senegal's own "Gas to Power" strategy note (Ministry of
+    # Petroleum and Energy), which cites $5-6/MMBtu domestic gas -- converted at the midpoint,
+    # ~EUR16.25/MWh_th (vs. the previous technology-data default of ~28.4 EUR/MWh_th for 2030,
+    # which was itself backfilled from a 2010-vintage DIW figure, not a current benchmark).
+    gas: 16.25
+    # coal: technology-data's default (7.8, declining to 6.7 by 2050, DIW/IEA-2011-vintage) is
+    # roughly half the current international benchmark. No landed Senegal-specific price found
+    # (Sendou's coal is imported); used API2 Rotterdam (~$120/t, Aug 2026, 6,000 kcal/kg NAR =
+    # 25.1 GJ/t) as the best available proxy, without a further shipping/import premium (not
+    # quantified). Coal was never built in any solved network in this project's model
+    # comparisons to date, so this is a correctness fix, not expected to move dispatch results.
+    coal: 14.9
+    # biomass: technology-data's default (9.35, flat since IEA 2011b, over a decade old) is
+    # far below even the cheapest current biomass benchmark found. Deliberately NOT set to the
+    # EU wood-pellet market benchmark (37-64 EUR/MWh_th) -- Senegal's dominant available
+    # feedstock (groundnut shell, 700,000-900,000 t/year in the groundnut basin) is a
+    # near-waste agricultural residue, not commercially-traded wood pellets, a different market
+    # entirely. Used the low end of the EU agricultural-residue range (Lamers et al. 2015,
+    # already cited in the project's UTS Africa Power Report; EUR4/GJ ~ EUR14.4/MWh_th) as a
+    # conservative proxy -- plausibly still an overstatement of true near-waste feedstock cost,
+    # flagged as a real data gap (no Senegal/groundnut-shell-specific EUR/GJ figure available).
+    # Biomass was never built in any solved network to date, so also a correctness fix, not
+    # expected to move dispatch results.
+    biomass: 14.4
   # fuel: # EUR/MWh
   #   gas: 10.1
   # lifetime: # years

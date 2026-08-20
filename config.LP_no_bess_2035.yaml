@@ -38,8 +38,8 @@ enable:
 custom_rules: ["custom_rules/patch_transmission.smk"] # Default empty [] or link to custom rule file e.g. ["my_folder/my_rules.smk"] that add rules to Snakefile
 
 run:
-  name: "uc_no_bess_2040" # use this to keep track of runs with different settings
-  sector_name: "uc_no_bess_2040" # use this to keep track of sector scenario runs
+  name: "LP_no_bess_2035" # use this to keep track of runs with different settings
+  sector_name: "LP_no_bess_2035" # use this to keep track of sector scenario runs
   shared_cutouts: true # set to true to share the default cutout(s) across runs
   # Note: value false requires build_cutout to be enabled
   allow_scenario_failure: true # If True, the workflow will continue even if a scenario in run_scnenario fails
@@ -50,7 +50,7 @@ scenario:
   clusters: [24]
   opts: [1h]
   planning_horizons: # investment years for myopic and perfect; or costs year for overnight
-  - 2040
+  - 2035
   sopts:
   - "336seg"
   demand:
@@ -179,7 +179,7 @@ base_network:
 load_options:
   source: "gegis" # "demcast" or "gegis"
   weather_year: 2013 # Weather year of the load profile
-  prediction_year: 2040 # Valid only if "gegis" used as a source
+  prediction_year: 2035 # Valid only if "gegis" used as a source
   scale: 1 # scales all load time-series, i.e. 2 = doubles load
 
 co2_budget:     #check!!!!!!!!!!!!!!!!
@@ -223,7 +223,7 @@ electricity:
     Store: []              # no_bess: was [battery]
     Link: []
 
-  powerplants_filter: (DateOut >= 2040 or DateOut != DateOut) and (DateIn <= 2040 or DateIn != DateIn)
+  powerplants_filter: (DateOut >= 2035 or DateOut != DateOut) and (DateIn <= 2035 or DateIn != DateIn)
   custom_powerplants: false #  "false" use only powerplantmatching (ppm) data, "merge" combines ppm and custom powerplants, "replace" use only custom powerplants
 
   conventional_carriers: [oil, OCGT, CCGT, coal, biomass]
@@ -379,7 +379,7 @@ renewable:
 # TODO: Needs to be adjusted for Africa.
 # Costs Configuration
 costs:
-  year: 2040 # cost file selection, i.e. costs_2030.csv in this case; reference year for costs is always 2020
+  year: 2035 # cost file selection, i.e. costs_2030.csv in this case; reference year for costs is always 2020
   technology_data_version: v0.13.2
   discountrate: [0.07] #, 0.086, 0.111]
   country_specific_data: "" # (optional) Reference to the desired technology-data directory for techno-economic input data; Only "" and "US" supported, for other values check the technology-data output directory
@@ -419,9 +419,9 @@ costs:
     # DEA/technology-data catalogue figure -- independent benchmarking (NREL mid case,
     # Ember) showed the DEA figure running 14-42% above real current market prices.
     # Split into inverter/storage using this model's own DEA-implied power/energy cost
-    # ratio, applied to Ember's total. Year-specific -- matches this config's year (2040).
-    battery inverter: 66962
-    battery storage: 62944
+    # ratio, applied to Ember's total. Year-specific -- matches this config's year (2035).
+    battery inverter: 75682
+    battery storage: 68696
   FOM: # %/year -- Ember "How cheap is battery storage?" (Dec 2025), ~2% of capex, routine
     # maintenance/monitoring/performance-guarantee only -- Ember explicitly excludes
     # augmentation/degradation from this figure (unlike NREL's 4%, which bundles a
@@ -436,8 +436,8 @@ costs:
     # hardcoded to 0 in add_extra_components.py -- see the signed-p note there), so a value
     # here would be inert. Formula: storage capex (Ember-anchored, EUR/MWh) / cycle_life
     # (5000 cycles to 80% SOH, mid of the 4000-6000 real-world grid-scale LFP range).
-    # Year-specific -- matches this config's year (2040).
-    battery inverter: 12.59
+    # Year-specific -- matches this config's year (2035).
+    battery inverter: 13.74
   efficiency: # per unit -- round-trip. DEA's "battery inverter" value (0.96) only covers
     # the inverter/PCS's own AC-DC-AC conversion loss, not the whole system: NREL "Cost
     # Projections for Utility-Scale Battery Storage: 2025 Update" (Cole et al. 2025)
@@ -536,11 +536,11 @@ costs:
   # CCGT and oil sourcing unchanged from before (Energies 17(1):51 2024; Wartsila product
   # literature respectively) -- see Excel sheet for exact citations.
   committable:
-    OCGT: true
-    CCGT: true
-    coal: true
-    oil: true
-    biomass: true
+    OCGT: false
+    CCGT: false
+    coal: false
+    oil: false
+    biomass: false
   p_min_pu: # per unit of p_nom
     OCGT: 0.45 # Agora Table 1, "most commonly used" OCGT: 40-50% -> midpoint
     CCGT: 0.5

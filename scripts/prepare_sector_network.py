@@ -3161,7 +3161,20 @@ def convert_conventional_generators_to_links(
             p_nom_extendable=carrier_gens["p_nom_extendable"],
             efficiency=carrier_gens["efficiency"],
             efficiency2=costs.at[fuel_carrier, "CO2 intensity"],
-            marginal_cost=costs.at[carrier, "efficiency"] * costs.at[carrier, "VOM"],
+            # This Link's p_nom is fuel-throughput (bus0 = fuel bus), not electrical output, since
+            # p_nom = carrier_gens["p_nom"] / efficiency above. The true per-electrical-MWh/MW costs
+            # (VOM+fuel/efficiency, and "fixed") need scaling by efficiency to convert to the
+            # €/MWh_th or €/MW_th/year basis this Link's p0/p_nom actually use -- multiplying back
+            # through by p0 (=p_elec/efficiency) recovers the correct true cost per unit of
+            # electricity generated.
+            # Note: this sector-scope cost table has no merged "marginal_cost"/"capital_cost"
+            # column (unlike the elec-scope one) -- VOM/fuel stay separate, and the annualized
+            # capital cost column here is named "fixed", not "capital_cost".
+            # Previously this used "VOM" alone, silently dropping the fuel-cost term entirely --
+            # fuel is ~96% of oil's true marginal cost, so oil (and any other converted carrier)
+            # was priced as near-free to run.
+            marginal_cost=costs.at[carrier, "efficiency"]
+            * (costs.at[carrier, "VOM"] + costs.at[carrier, "fuel"] / costs.at[carrier, "efficiency"]),
             capital_cost=costs.at[carrier, "efficiency"] * costs.at[carrier, "fixed"],
             build_year=carrier_gens["build_year"],
             lifetime=carrier_gens["lifetime"],
